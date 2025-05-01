@@ -2,3 +2,6 @@
 *.ho
 *.hi
 *.o
+
+ieee-helper.exe
+ieee-helper
