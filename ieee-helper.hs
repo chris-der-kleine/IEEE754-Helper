@@ -11,6 +11,8 @@ type Exponent = [Bool]
 type Charakteristik = [Bool]
 data IEEE = ISingle | IDouble
 
+version = "v1.1"
+
 
 bin2nachkomma :: Nachkomma -> Double
 bin2nachkomma =
@@ -83,7 +85,9 @@ denormalisierterWert (mbin, mexponent) =
 
 -- Reverse SequenceA:  fromMaybe [] $ map (pure :: Int -> Maybe Int) <$> Just [1,0,1]
 
+-- -------------------------------------------------------------------------------------------------------------------------
 -- IO
+-- -------------------------------------------------------------------------------------------------------------------------
 
 bin2dez :: String -> Double
 bin2dez l = 
@@ -170,17 +174,12 @@ destructIEEE Nothing = Nothing
              
 
         
-
+-- -------------------------------------------------------------------------------------------------------------------------
 -- Main Programm
-
-printHelp :: String
-printHelp = unlines
-    [ "Hello World"
-    , "This is the Help"
-    ]
+-- -------------------------------------------------------------------------------------------------------------------------
 
 printError :: String
-printError = "Invalid Arguments"
+printError = "Invalid Arguments\nTry ieee-helper --help to get help"
 
 printWithDefault :: String -> (String -> String) -> [String] -> String
 printWithDefault def _ [] = def
@@ -209,17 +208,29 @@ printToIEEE (mode:value_in:_) =
             ]
 printToIEEE _ = printError
 
-printIEEEToFp :: [String] -> String
-printIEEEToFp (mode:value_in:_) =
-    fromMaybe printError $
-        printPretty <$>
-            case map toLower mode of
-                "hex"   -> showPretty <$> destructIEEE (hex2Bin value_in)
-                "h"     -> showPretty <$> destructIEEE (hex2Bin value_in)
-                "bin"   -> showPretty <$> destructIEEE (pure value_in)
-                "b"     -> showPretty <$> destructIEEE (pure value_in)
-                _        -> Nothing
+printDecToBin :: [String] -> String
+printDecToBin (p:num:_) = 
+    fromMaybe printError $ printPretty <$> (dez2bin <$> readMaybe p <*> readMaybe num)
+    where
+        printPretty :: String -> String
+        printPretty v = unlines
+            [ "Your Decimal number \"" ++ (show $ (read num :: Double)) ++ "\" is the following in binary:"
+            , v
+            , "You could also just write " ++ bin2Hex v ++ " if that is easier."
+            ]
+printDecToBin _ = printError
 
+printIEEEToFp :: [String] -> String
+printIEEEToFp (value_in:_) =
+    let
+        (hexIdent, hVal) = splitAt 2 value_in
+    in
+    fromMaybe "That didn't work :(" $
+        printPretty <$>
+            if hexIdent == "0x" then
+                showPretty <$> destructIEEE (hex2Bin value_in)
+            else
+                showPretty <$> destructIEEE (pure value_in)
     where
         printPretty s = unlines
             [ "After reading your IEEE754 input the value is:"
@@ -238,11 +249,17 @@ mainInteract (mode:args) =
 
         "HexToBin"  -> printWithDefault 
             printError (fromMaybe printError . hex2Bin) args
+        "DecToBin"  -> printDecToBin args
+        "BinToDec"  -> printWithDefault
+            printError (("Your Number is: " ++) . show . bin2dez) args
 
-        "FpToIEEE"  -> printToIEEE args
-        "IEEEToFp"  -> printIEEEToFp args
-        "version"   -> "v1.0"
-        _           -> printHelp
+        "DecToIEEE" -> printToIEEE args
+        "IEEEToDec" -> printIEEEToFp args
+        "-v"        -> version
+        "--version" -> version
+        "-h"        -> printHelp
+        "--help"    -> printHelp
+        _           -> printError
 mainInteract _      =  printHelp
 
 main :: IO ()
@@ -250,7 +267,52 @@ main = do
     args <- getArgs
     putStr $ mainInteract args
 
+
+printHelp :: String
+printHelp = unlines
+    [ "IEEE Helper Tool" ,""
+    , "Usage:"
+    , "  ieee-helper BinToHex <binNumber>"
+    , "  ieee-helper HexToBin <hexNumber>"
+    , "  ieee-helper DecToBin <precision> <decNumber>"
+    , "  ieee-helper BinToDec <binNumber>"
+    , "  ieee-helper DecToIEEE [(Single|s)|(Double|d)] <decNumber>"
+    , "  ieee-helper IEEEToDec <ieee754BinNumber>"
+    , "  ieee-helper -h | --help"
+    , "  ieee-helper -v | --version"
+    , ""
+    , "Options:"
+    , "  -h --help\t\tShow this help screen"
+    , "  -v --version\t\tShow current Version"
+    , ""
+    , "Command Descriptions:"
+    , "  BinToHex <binNumber>\t\t\t\tConvert a binary number to a hexadecimal number."
+    , "  HexToBin <hexNumber>\t\t\t\tConvert a hexadecimal number to a binary number."
+    , "  DecToBin <precision> <decNumber>\t\tConvert a decimal number to a binary number."
+    , "  \t\t\t\t\t\t  Precision is the number of bits after the point."
+    , "  BinToDec <binNumber>\t\t\t\tConvert binary floating number to decimal number."
+    , "  DecToIEEE [(Single|s)|(Double|d)] <decNumber>\tConvert a decimal number to a IEEE754 compliant number."
+    , "  IEEEToDec <ieee754BinNumber>\t\t\tInput a IEEE754 binary number and get the decimal representation."
+    , ""
+    , "Argument Descriptions:"
+    , "  binaryNumber\t\tBinary number. Don't seperate by spaces. E.g. 0100101101"
+    , "  hexNumber\t\tHexadecimal number. E.g. 0x42DF"
+    , "  precision\t\tHow many digits after the point should be calculated? E.g. 3"
+    , "  decNumber\t\tFloating point decimal number. E.g. 3.14"
+    , "  ieee754BinNumber\tIEEE754 compliant bin number. E.g. 01000000010010001111010111000010"
+    , ""
+    , "Examples:"
+    , "  ieee-helper HexToBin 0x43D.54"
+    , "  ieee-helper DecToBin 23 3.1416"
+    , "  ieee-helper DecToIEEE Single 42.743"
+    , "  ieee-helper IEEEToDec 0x42b844dd"
+    , "  ieee-helper BinToHex 110110.1011001"
+    ]
+
+
+-- -------------------------------------------------------------------------------------------------------------------------
 -- Helpers
+-- -------------------------------------------------------------------------------------------------------------------------
 
 splitOn :: Eq e => e -> [e] -> ([e], [e])
 splitOn e l =
@@ -271,9 +333,27 @@ splitFillWith index def ls =
         splitAt index ls
 
 bin2Hex :: String -> String
-bin2Hex =
-    showHex . convert . reverse . makeInt
+bin2Hex str =
+    
+    if '.' `elem` str then
+        let
+            (vorkomma, nachkomma) = splitOn '.' str
+        in
+        "0x" ++     doConversion vorkomma 
+        ++ "." ++   doConversionR nachkomma
+    else if ',' `elem` str then
+        let
+            (vorkomma, nachkomma) = splitOn ',' str
+        in
+        "0x" ++     doConversion vorkomma 
+        ++ "." ++   doConversionR nachkomma
+    else
+        "0x" ++     doConversion str
+        
     where
+        doConversion  = showHex . convert . reverse  . makeInt
+        doConversionR = showHex . reverse . convertR . makeInt
+
         makeInt = map (\c -> if c == '1' then 1 else 0)
 
         convert [] = []
@@ -282,16 +362,23 @@ bin2Hex =
         convert (a:b:xs) = b*2 +a : convert xs
         convert (a:xs) = a : convert xs
 
-        showHex [] = "0x"
-        showHex (x:xs)
-            | x <= 9 = showHex xs ++ show x
-            | x == 10 = showHex xs ++ "A"
-            | x == 11 = showHex xs ++ "B"
-            | x == 12 = showHex xs ++ "C"
-            | x == 13 = showHex xs ++ "D"
-            | x == 14 = showHex xs ++ "E"
-            | x == 15 = showHex xs ++ "F"
-            | otherwise = "0"
+        convertR [] = []
+        convertR (d:c:b:a:xs) = d*8 + c*4 + b*2 + a : convertR xs
+        convertR (d:c:b:xs) = d*8 + c*4 + b*2 : convertR xs
+        convertR (d:c:xs) = d*8 + c*4 : convertR xs
+        convertR (d:xs) = d*8 : convertR xs
+
+showHex :: [Int] -> String
+showHex [] = ""
+showHex (x:xs)
+    | x <= 9 = showHex xs ++ show x
+    | x == 10 = showHex xs ++ "A"
+    | x == 11 = showHex xs ++ "B"
+    | x == 12 = showHex xs ++ "C"
+    | x == 13 = showHex xs ++ "D"
+    | x == 14 = showHex xs ++ "E"
+    | x == 15 = showHex xs ++ "F"
+    | otherwise = "0"
 
 hex2Bin :: String -> Maybe String
 hex2Bin str = 
